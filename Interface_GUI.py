@@ -1,8 +1,6 @@
 import tkinter as tk
 import os
 import re
-import sys
-import requests
 import threading
 import queue
 import time
@@ -123,7 +121,7 @@ l_sel_indicies = tk.Label(master=f_sel_indicies, text="Selected indicies:")
 l_sel_indicies.pack(anchor="nw")
 
 t_sel_indicies = tk.StringVar()
-e_sel_indicies = tk.Entry(master=f_sel_indicies, textvariable=t_sel_indicies)
+e_sel_indicies = tk.Entry(master=f_sel_indicies, textvariable=t_sel_indicies, state="readonly")
 e_sel_indicies.pack(anchor="nw", fill='x')
 
 v_sel_indicies = tk.Variable()
@@ -308,51 +306,68 @@ def b_fold_xmers_on_click(event):
 b_fold_xmers.bind("<ButtonRelease-1>", b_fold_xmers_on_click)
 
 
-load_msg_list = tk.Variable()
-load_msg_list.set(("  .\r", "  ..\r", "  ...\r"))
 def save_results():
     debug_print("Starting xmer folding process...")
 
+    # Creating save directory
     debug_print("Creating output directory...")
     temp_save_dir = t_save_dir.get()
     res_create_dir = create_dir(temp_save_dir)
-    if res_create_dir == "**UnableToCreateDir**":
+    
+    if res_create_dir == "**UnableToCreateDir**": # Failed to create save directory
         debug_print(f"  Error: unable to create directory!\n   the specified directory, \"{temp_save_dir}\", couldn't be created.")
         return "break"
-    debug_print(f"  Successfully created output directory \"{temp_save_dir}\"")
-    title = t_seq_name.get().strip().replace(" ", "_")
     
+    debug_print(f"  Successfully created output directory \"{temp_save_dir}\"")
+    
+    # Writing sequence to txt file in save directory
     debug_print("\nWriting full sequence to file...")
+    title = t_seq_name.get().strip().replace(" ", "_")
     sequence_file_write_results = create_file_ext(res_create_dir, "_" + title + "_full_sequence", ".txt", t_seq.get().strip().upper())
+    
     if sequence_file_write_results:
         debug_print("  Successfully wrote full sequence to \"" + res_create_dir + "\"")
     else:
         debug_print("  Failed to write full sequence to \"" + res_create_dir + "\"")
 
+    # Folding selected xmers
     debug_print("\nFolding selected xmers...")
+
     for xmer in v_sel_indicies.get():
         debug_print("\nFolding xmer index " + xmer[0] + ": " + xmer[1])
         try:
+            # Creating thread to query ESMFold
             res_queue = queue.Queue()
-            res_title = title + "_" + str(xmer[0])
             thread = threading.Thread(target=threaded_fold_sequence, args=(xmer[1], title + ": xmer #" + str(xmer[0]), res_queue))
             thread.start()
-            msg_seq_index = 0
+           
+           # Waiting for thread to finish
             while thread.is_alive():
                 debug_print("  Waiting...")
-                msg_seq_index = (msg_seq_index + 1) % len(load_msg_list.get())
                 time.sleep(1)
+            
             thread.join()
             res_text = res_queue.get()
+
+            if res_text == "**Exception**": # Thread exited with some exception
+                debug_print("  Error: unable to send query to ESMFold! Please check your internet connection")
+                continue
+            elif res_text == "{\"message\": \"Endpoint request timed out\"}": # Response timed out
+                debug_print("  Error: ESMFold endpoint request timed out! Please try again later")
+                continue
+
+            # Saving the result of the query to the save directory
             debug_print("  Result recieved\nSaving result to file...")
+            res_title = title + "_" + str(xmer[0])
             write_res = create_file(res_create_dir, res_title, res_text)
+            
             if write_res:
                 debug_print("  Successfully wrote \"" + res_title + "\" to \"" + res_create_dir +"\"")
             else:
                 debug_print("  Failed to write \"" + res_title + "\" to \"" + res_create_dir +"\"")
 
         except:
-            debug_print("  Error: unable to send query to ESMFold! Please check your internet connection")
+            debug_print("  Error: an unknown error occurred!")
 
     debug_print("\nDone\n")
 
