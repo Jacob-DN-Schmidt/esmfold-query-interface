@@ -7,7 +7,7 @@ import time
 from tkinter import ttk
 from tkinter import font
 from tkinter import scrolledtext as st
-from ESMFold_Xmer_Query_Interface import *
+from ESMFold_Query_Interface import *
 
 # default_font = ("Calibri", 12)
 
