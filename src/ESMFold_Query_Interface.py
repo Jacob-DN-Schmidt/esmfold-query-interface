@@ -1,4 +1,4 @@
-# ESMFold 15-mer Query Interface
+# ESMFold Query Interface
 
 import requests
 import re
@@ -33,28 +33,6 @@ def construct_xmers(sequence: str, x: int) -> list:
 
     return res
 
-"""
-These methods are depricated as they were used for the command line version of the interface
-
-# def request_sequence() -> str:
-#     while True:
-#         res = input("Enter the sequence you wish to fold: ").strip().upper()
-        
-#         if re.search("^[ARNDCQEGHILKMFPSTWYV]*$", res):
-#             return res
-        
-#         print("Error: " + res + " : Invalid sequence!")
-
-
-# def request_xmer_len() -> int:
-#     while True:
-#         res = input("Enter xmer length: ")
-
-#         if res.isdigit() and int(res) > 2:
-#             return int(res)
-        
-#         print("Error: " + res + ": Invalid xmer length!")
-"""
 
 """URL for the public ESMFold API"""
 esmfold_url = "https://api.esmatlas.com/foldSequence/v1/pdb/"
@@ -96,6 +74,92 @@ def threaded_fold_sequence(sequence: str, title: str, result_queue: queue.Queue)
         result_queue.put(result)
     except:
         result_queue.put("**Exception**")
+
+
+def create_dir(dir_name: str) -> str:
+    """
+    Creates a new directory in "./output/" 
+    
+    Parameters:
+        dir_name -- the name of the directory to be created (spaces are replaced with underscores)
+    
+    Return:
+        string -- the name of the created directory if the directory is successfully created or already exists, otherwise returns "**UnableToCreateDir**"
+    """
+    try:
+        temp_dir_name = "./output/" + dir_name.strip().replace(" ", "_")
+        os.mkdir(temp_dir_name)
+        return temp_dir_name
+    except Exception as ex:
+        if type(ex).__name__ == "FileExistsError":
+            return temp_dir_name
+        else:
+            return "**UnableToCreateDir**"
+
+
+# def create_file(dir: str, file_name:str, content:str) -> bool:
+#     temp_dir = "./output/" + dir.strip().replace(" ", "_")
+#     with open(dir + "/" + file_name.replace(" ", "_") + ".pdb", "wt") as file:
+#         file.write(content)
+#         file.close()
+#         return True
+#     return False
+
+
+def create_file_ext(dir: str, file_name: str, file_ext: str, content: str) -> int:
+    """
+    Creates a new file or overwrites an existing file with the same name in the specified directory
+
+    Parameters:
+        dir -- the name of the directory for the file to be created in
+        file_name -- the name of the file to be created
+        file_ext -- the file extension to be appended to the file name
+        content -- the contents to be written to the file
+        
+    Return:
+        int -- 0 if the file is successfully opened and written to, 1 if dir is empty, 2 if file_name is empty, 3 if an exception occurrs while writing to the file
+    """
+    if len(dir) <= 0:
+        return 1
+    
+    if len(file_name) <= 0:
+        return 2
+
+    temp_file_ext = file_ext.strip()
+    if len(temp_file_ext) > 0 and not file_ext.startswith('.'):
+        temp_file_ext = "." + temp_file_ext
+    
+    try:
+        with open(f"{dir}/{file_name}{temp_file_ext}", "wt") as file:
+            file.write(content)
+            file.close()
+            return 0
+    except Exception as ex:
+        return 3
+
+
+
+"""
+These methods are deprecated as they were used for the command line version of the interface
+
+# def request_sequence() -> str:
+#     while True:
+#         res = input("Enter the sequence you wish to fold: ").strip().upper()
+        
+#         if re.search("^[ARNDCQEGHILKMFPSTWYV]*$", res):
+#             return res
+        
+#         print("Error: " + res + " : Invalid sequence!")
+
+
+# def request_xmer_len() -> int:
+#     while True:
+#         res = input("Enter xmer length: ")
+
+#         if res.isdigit() and int(res) > 2:
+#             return int(res)
+        
+#         print("Error: " + res + ": Invalid xmer length!")
 
 
 # def request_indices(xmers: list) -> set:
@@ -150,18 +214,6 @@ def threaded_fold_sequence(sequence: str, title: str, result_queue: queue.Queue)
 #     return res
 
 
-def create_dir(dir_name: str) -> str:
-    try:
-        temp_dir_name = "./output/" + dir_name.replace(" ", "_")
-        os.mkdir(temp_dir_name)
-        return temp_dir_name
-    except Exception as ex:
-        if type(ex).__name__ == "FileExistsError":
-            return temp_dir_name
-        else:
-            return "**UnableToCreateDir**"
-
-
 # def resolve_conflicting_dir_name(dir_name) -> str:
 #     temp_dir_name = dir_name.replace(" ", "_")
 #     dupicate_dir_name_index = 1
@@ -173,21 +225,6 @@ def create_dir(dir_name: str) -> str:
     
 #     return created_dir_name
 
-
-def create_file(dir, file_name, content) -> bool:
-    temp_dir = "./output/" + dir.strip().replace(" ", "_")
-    with open(dir + "/" + file_name.replace(" ", "_") + ".pdb", "wt") as file:
-        file.write(content)
-        return True
-    return False
-
-
-def create_file_ext(dir, file_name, file_ext, content) -> bool:
-    temp_dir = "./output/" + dir.strip().replace(" ", "_")
-    with open(dir + "/" + file_name.replace(" ", "_") + file_ext, "wt") as file:
-        file.write(content)
-        return True
-    return False
 
     
 # Main
@@ -226,3 +263,5 @@ def create_file_ext(dir, file_name, file_ext, content) -> bool:
 
 # Main entrypoint
 #main()
+
+"""

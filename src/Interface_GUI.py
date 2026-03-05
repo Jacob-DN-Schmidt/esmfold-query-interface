@@ -199,12 +199,12 @@ def t_save_dir_change(*args):
     
     if len(text_t_save_dir) != 0:
         text_t_save_dir.replace(" ", "_")
-        save_dir = "./output/" + text_t_save_dir
+        save_dir = f"./output/{text_t_save_dir}"
         if os.path.isdir(save_dir):
-            debug_print("Warning: Pre-existing directory (" + save_dir + ")! Files could be overwritten.")
-            t_msg_save_dir.set("Warning: Pre-existing directory (" + save_dir + ")!\nFiles could be overwritten.")
+            debug_print(f"Warning: Pre-existing directory ({save_dir})! Files could be overwritten.")
+            t_msg_save_dir.set(f"Warning: Pre-existing directory ({save_dir})!\nFiles could be overwritten.")
         else:
-            t_msg_save_dir.set("Save outputs to: " + save_dir)
+            t_msg_save_dir.set(f"Save outputs to: {save_dir}")
     else:
         t_msg_save_dir.set("No directory specified")
 t_save_dir.trace_add("write", t_save_dir_change)
@@ -233,7 +233,8 @@ def fill_tv(xmers: list):
             tv_xmer_list.insert("", index=i, values=(i, xmers[i]), tags=("even"))
         else:
             tv_xmer_list.insert("", index=i, values=(i, xmers[i]), tags=("odd"))
-            
+
+
 def update_tv_contents(event):
     tv_xmer_list.delete(*tv_xmer_list.get_children())
 
@@ -246,6 +247,7 @@ def update_tv_contents(event):
         fill_tv(xmers)
 tv_xmer_list.bind("<Button-3>", update_tv_contents)
 
+
 def prevent_resize(event):
     if (
         tv_xmer_list.identify_region(event.x, event.y) == "separator" or
@@ -254,6 +256,7 @@ def prevent_resize(event):
         return "break"
 tv_xmer_list.bind("<Button-1>", prevent_resize)
 tv_xmer_list.bind("<Motion>", prevent_resize)
+
 
 def b_xmer_list_on_release(event):
     bbox_b_xmer_list = (b_xmer_list.winfo_rootx(), b_xmer_list.winfo_rooty(), b_xmer_list.winfo_width(), b_xmer_list.winfo_height())
@@ -265,6 +268,7 @@ def b_xmer_list_on_release(event):
         ):
             update_tv_contents(event)
 b_xmer_list.bind("<ButtonRelease-1>", b_xmer_list_on_release)
+
 
 change_source_xmer_list_flag = tk.BooleanVar(value=False)
 
@@ -278,10 +282,74 @@ def tv_xmer_list_on_selection(event):
         update_t_sel_indicies()
 tv_xmer_list.bind("<ButtonRelease-1>", tv_xmer_list_on_selection)
 
+
 # Selected indicies events
 # TO-DO
 
+
 # Fold xmers events
+def start_folding():
+    # Creating save directory
+    debug_print("Creating output directory...")
+    res_create_dir = create_dir(t_save_dir.get())
+    
+    if res_create_dir == "**UnableToCreateDir**": # Failed to create save directory
+        debug_print("  Error: unable to create the save directory!")
+        return "break"
+    
+    debug_print(f"  Successfully created output directory \"{res_create_dir}\"")
+    
+    # Writing sequence to txt file in save directory
+    debug_print("\nWriting full sequence to file...")
+    sequence_base_title = t_seq_name.get().strip().replace(" ", "_")
+    sequence_file_write_results = create_file_ext(res_create_dir, f"_{sequence_base_title}_full_sequence", "txt", t_seq.get().strip().upper())
+    
+    if sequence_file_write_results == 0:
+        debug_print(f"  Successfully wrote full sequence to \"{res_create_dir}\"")
+    else:
+        debug_print(f"  Failed to write full sequence to \"{res_create_dir}\"")
+
+    # Folding selected xmers
+    debug_print("\nFolding selected xmers...")
+    fold_selected_xmers(res_create_dir, sequence_base_title)
+
+
+def fold_selected_xmers(save_dir, sequence_base_title):
+    for xmer in v_sel_indicies.get():
+        debug_print(f"\nFolding xmer index {xmer[0]}: {xmer[1]}")
+        # Creating thread to query ESMFold
+        res_queue = queue.Queue()
+        thread_args = (xmer[1], f"{sequence_base_title}: xmer #{str(xmer[0])}", res_queue)
+        thread = threading.Thread(target=threaded_fold_sequence, args=thread_args)
+        thread.start()
+           
+        # Waiting for thread to finish
+        while thread.is_alive():
+            debug_print("  Waiting...")
+            time.sleep(2)
+            
+        thread.join()
+        res_text = res_queue.get()
+
+        if res_text == "**Exception**": # Thread exited with some exception
+            debug_print("  Error: unable to send query to ESMFold! Please check your internet connection")
+            continue
+        elif res_text == "{\"message\": \"Endpoint request timed out\"}": # Response timed out
+            debug_print("  Error: ESMFold endpoint request timed out! Please try again later")
+            continue
+
+        # Saving the result of the query to the save directory
+        debug_print("  Result recieved\nSaving result to file...")
+        res_title = sequence_base_title + "_" + str(xmer[0])
+        write_res = create_file_ext(save_dir, res_title, ".pbd", res_text)
+            
+        if write_res == 0:
+            debug_print(f"  Successfully wrote \"{res_title}\" to \"{save_dir}\"")
+        else:
+            debug_print(f"  Failed to write \"{res_title}\" to \"{save_dir}\"")
+            debug_print(f"  {write_res}")
+
+
 def b_fold_xmers_on_click(event):
         bbox_b_fold_xmers = (b_fold_xmers.winfo_rootx(), b_fold_xmers.winfo_rooty(), b_fold_xmers.winfo_width(), b_fold_xmers.winfo_height())
         if (
@@ -302,74 +370,10 @@ def b_fold_xmers_on_click(event):
             debug_print("Error: No xmers selected!")
             return "break"
         
-        save_results()
+        debug_print("Starting xmer folding process...")
+        start_folding()
+        debug_print("\nDone\n")
 b_fold_xmers.bind("<ButtonRelease-1>", b_fold_xmers_on_click)
-
-
-def save_results():
-    debug_print("Starting xmer folding process...")
-
-    # Creating save directory
-    debug_print("Creating output directory...")
-    temp_save_dir = t_save_dir.get()
-    res_create_dir = create_dir(temp_save_dir)
-    
-    if res_create_dir == "**UnableToCreateDir**": # Failed to create save directory
-        debug_print(f"  Error: unable to create directory!\n   the specified directory, \"{temp_save_dir}\", couldn't be created.")
-        return "break"
-    
-    debug_print(f"  Successfully created output directory \"{temp_save_dir}\"")
-    
-    # Writing sequence to txt file in save directory
-    debug_print("\nWriting full sequence to file...")
-    title = t_seq_name.get().strip().replace(" ", "_")
-    sequence_file_write_results = create_file_ext(res_create_dir, "_" + title + "_full_sequence", ".txt", t_seq.get().strip().upper())
-    
-    if sequence_file_write_results:
-        debug_print("  Successfully wrote full sequence to \"" + res_create_dir + "\"")
-    else:
-        debug_print("  Failed to write full sequence to \"" + res_create_dir + "\"")
-
-    # Folding selected xmers
-    debug_print("\nFolding selected xmers...")
-
-    for xmer in v_sel_indicies.get():
-        debug_print("\nFolding xmer index " + xmer[0] + ": " + xmer[1])
-        try:
-            # Creating thread to query ESMFold
-            res_queue = queue.Queue()
-            thread = threading.Thread(target=threaded_fold_sequence, args=(xmer[1], title + ": xmer #" + str(xmer[0]), res_queue))
-            thread.start()
-           
-           # Waiting for thread to finish
-            while thread.is_alive():
-                debug_print("  Waiting...")
-                time.sleep(1)
-            
-            thread.join()
-            res_text = res_queue.get()
-
-            if res_text == "**Exception**": # Thread exited with some exception
-                debug_print("  Error: unable to send query to ESMFold! Please check your internet connection")
-                continue
-            elif res_text == "{\"message\": \"Endpoint request timed out\"}": # Response timed out
-                debug_print("  Error: ESMFold endpoint request timed out! Please try again later")
-                continue
-
-            # Saving the result of the query to the save directory
-            debug_print("  Result recieved\nSaving result to file...")
-            res_title = title + "_" + str(xmer[0])
-            write_res = create_file(res_create_dir, res_title, res_text)
-            
-            if write_res:
-                debug_print("  Successfully wrote \"" + res_title + "\" to \"" + res_create_dir +"\"")
-            else:
-                debug_print("  Failed to write \"" + res_title + "\" to \"" + res_create_dir +"\"")
-
-        except:
-            debug_print("  Error: an unknown error occurred!")
-
-    debug_print("\nDone\n")
 
 
 # # Debug console events
