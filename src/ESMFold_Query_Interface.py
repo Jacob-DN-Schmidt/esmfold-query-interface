@@ -5,8 +5,19 @@ import re
 import os
 import queue
 
+
 def construct_xmers(sequence: str, x: int) -> list:
-    
+    """
+    Constructs xmers and returns a list of them
+
+    Parameters:
+        sequence -- string of amino acids following the FASTA format
+        x -- length of the xmers to construct
+
+    Return:
+        list -- a list containing the xmers constructed; if x < 1, then returns an empty list
+    """
+
     res = list()
     
     if x >= len(sequence):
@@ -22,6 +33,8 @@ def construct_xmers(sequence: str, x: int) -> list:
 
     return res
 
+"""
+These methods are depricated as they were used for the command line version of the interface
 
 # def request_sequence() -> str:
 #     while True:
@@ -41,20 +54,43 @@ def construct_xmers(sequence: str, x: int) -> list:
 #             return int(res)
         
 #         print("Error: " + res + ": Invalid xmer length!")
+"""
 
-
+"""URL for the public ESMFold API"""
 esmfold_url = "https://api.esmatlas.com/foldSequence/v1/pdb/"
+
 def fold_sequence(sequence: str, title: str) -> str:
+    """
+    Queries the public ESMFold API to fold a sequence.
+
+    Parameters:
+        sequence -- string of amino acids following the FASTA format
+        title -- the title to be associated with the sequence (default "Untitled Sequence")
+
+    Return:
+        string -- the response text in the form of a protein database file (.pbd)
+    """
+
+    # Setting default title if whitespace only
     if title.strip() == "":
         title = "Untitled Sequence"
     
+    # Post request to ESMFold API
     res = requests.post(esmfold_url, data= sequence.upper()).text
+    # Add title into response text
     res = re.sub("TITLE *([^\n]*)", ("TITLE     " + title), res, flags= re.UNICODE | re.DOTALL)
     return res
 
 
 def threaded_fold_sequence(sequence: str, title: str, result_queue: queue.Queue) -> None:
-    """Threaded version of fold_sequence to put result in a queue."""
+    """
+    Starts a new thread running :py:func:`fold_sequence` and stores the result in the queue when finished
+
+    Parameters:
+        sequence -- string of amino acids following the FASTA format
+        title -- the title to be associated with the sequence (default "Untitled Sequence")
+        result_queue -- queue for recieving the return value
+    """
     try:
         result = fold_sequence(sequence, title)
         result_queue.put(result)
