@@ -336,7 +336,6 @@ def start_folding():
     else:
         debug_print(f"  Failed to write xmers to \"{res_create_dir}\\_{fasta_name}.fasta\"")
 
-    return
     # Folding selected xmers
     debug_print("\nFolding selected xmers...")
     fold_selected_xmers(res_create_dir, sequence_base_title)
