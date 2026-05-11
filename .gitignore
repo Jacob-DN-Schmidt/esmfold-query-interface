@@ -182,4 +182,3 @@ cython_debug/
 
 # Other 
 output/
-src/Testing.py
