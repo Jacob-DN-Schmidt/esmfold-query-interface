@@ -8,8 +8,6 @@ from tkinter import ttk
 from tkinter import font
 from tkinter import scrolledtext as st
 from src import interface_core
-import importlib
-importlib.reload(interface_core)
 
 
 # default_font = ("Calibri", 12)
