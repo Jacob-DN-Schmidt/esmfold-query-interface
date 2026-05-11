@@ -6,6 +6,12 @@ import os
 import queue
 
 
+def get_root_dir():
+    cwd = os.path.dirname(os.path.dirname(__file__))
+
+    return cwd
+
+
 def construct_xmers(sequence: str, x: int) -> list:
     """
     Constructs xmers and returns a list of them
@@ -87,14 +93,12 @@ def create_dir(dir_name: str) -> str:
         string -- the name of the created directory if the directory is successfully created or already exists, otherwise returns "**UnableToCreateDir**"
     """
     try:
-        temp_dir_name = "./output/" + dir_name.strip().replace(" ", "_")
-        os.mkdir(temp_dir_name)
+        temp_cwd = get_root_dir()
+        temp_dir_name = f"{temp_cwd}\\output\\{dir_name.strip().replace(" ", "_")}"
+        os.makedirs(temp_dir_name, exist_ok=True)
         return temp_dir_name
     except Exception as ex:
-        if type(ex).__name__ == "FileExistsError":
-            return temp_dir_name
-        else:
-            return "**UnableToCreateDir**"
+        return "**UnableToCreateDir**"
 
 
 # def create_file(dir: str, file_name:str, content:str) -> bool:
