@@ -16,7 +16,8 @@ Python version 3.14 and requests version 2.32.5 and its dependancies are all tha
 cd '/{path/to/root/folder}/esmfold-query-interface-main'
 ./'{path/to/python}/python.exe' 'src/Interface_GUI.py'
 ```
-6. And you are done! 
+6. And you are done!
+
 *Depending on how you installed python, you may be able to use an execution alias, like 'python.exe' or 'python3.exe', instead of "./'{path/to/python}/python.exe'". You can check what aliases that exist/are active by going to Settings -> Apps -> Advanced app settings -> App execution aliases.
 
 ## Using the GUI
