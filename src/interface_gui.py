@@ -7,7 +7,10 @@ import time
 from tkinter import ttk
 from tkinter import font
 from tkinter import scrolledtext as st
-from ESMFold_Query_Interface import *
+from src import interface_core
+import importlib
+importlib.reload(interface_core)
+
 
 # default_font = ("Calibri", 12)
 
@@ -198,13 +201,15 @@ def t_save_dir_change(*args):
     change_source_seq_name_flag.set(False)
     
     if len(text_t_save_dir) != 0:
+        root_dir = os.getcwd()
         text_t_save_dir.replace(" ", "_")
-        save_dir = f"./output/{text_t_save_dir}"
+        save_dir = f"{root_dir}\\output\\{text_t_save_dir}"
+        trunkated_save_dir = f"{os.path.basename(root_dir)}\\output\\{text_t_save_dir}"
         if os.path.isdir(save_dir):
-            debug_print(f"Warning: Pre-existing directory ({save_dir})! Files could be overwritten.")
-            t_msg_save_dir.set(f"Warning: Pre-existing directory ({save_dir})!\nFiles could be overwritten.")
+            debug_print(f"Warning: Pre-existing directory ({trunkated_save_dir})! Files could be overwritten.")
+            t_msg_save_dir.set(f"Warning: Pre-existing directory ({trunkated_save_dir})!\nFiles could be overwritten.")
         else:
-            t_msg_save_dir.set(f"Save outputs to: {save_dir}")
+            t_msg_save_dir.set(f"Save outputs to: {trunkated_save_dir}")
     else:
         t_msg_save_dir.set("No directory specified")
 t_save_dir.trace_add("write", t_save_dir_change)
@@ -241,7 +246,7 @@ def update_tv_contents(event):
     if len(t_seq.get()) == 0 or t_xmer_len.get() == 0:
         return "break"
 
-    xmers = construct_xmers(t_seq.get(), t_xmer_len.get())
+    xmers = interface_core.construct_xmers(t_seq.get(), t_xmer_len.get())
 
     if len(xmers) != 0:
         fill_tv(xmers)
@@ -287,11 +292,23 @@ tv_xmer_list.bind("<ButtonRelease-1>", tv_xmer_list_on_selection)
 # TO-DO
 
 
+def gen_fasta_file():
+    sequence_base_title = t_seq_name.get().strip()
+    xmer_list = list()
+    for target in tv_xmer_list.get_children():
+        xmer_list.append(tv_xmer_list.item(target, "values"))
+    
+    fasta_content = ''
+    for target in xmer_list:
+        fasta_content += f'>{sequence_base_title} #{target[0]}\n{target[1]}\n'
+    return fasta_content
+
+
 # Fold xmers events
 def start_folding():
     # Creating save directory
     debug_print("Creating output directory...")
-    res_create_dir = create_dir(t_save_dir.get())
+    res_create_dir = interface_core.create_dir(t_save_dir.get())
     
     if res_create_dir == "**UnableToCreateDir**": # Failed to create save directory
         debug_print("  Error: unable to create the save directory!")
@@ -302,13 +319,26 @@ def start_folding():
     # Writing sequence to txt file in save directory
     debug_print("\nWriting full sequence to file...")
     sequence_base_title = t_seq_name.get().strip().replace(" ", "_")
-    sequence_file_write_results = create_file_ext(res_create_dir, f"_{sequence_base_title}_full_sequence", "txt", t_seq.get().strip().upper())
+    sequence_file_write_results = interface_core.create_file_ext(res_create_dir, f"_{sequence_base_title}_full_sequence", "txt", t_seq.get().strip().upper())
     
     if sequence_file_write_results == 0:
-        debug_print(f"  Successfully wrote full sequence to \"{res_create_dir}\"")
+        debug_print(f"  Successfully wrote full sequence to \"{res_create_dir}\\_{sequence_base_title}_full_sequence.txt\"")
     else:
-        debug_print(f"  Failed to write full sequence to \"{res_create_dir}\"")
+        debug_print(f"  Failed to write full sequence to \"{res_create_dir}\\_{sequence_base_title}_full_sequence.txt\"")
 
+    # Writing xmers to FASTA file in save dir
+    debug_print("\nWriting xmers to FASTA file...")
+    fasta_name = f"_{sequence_base_title}_{t_xmer_len.get()}mers"
+    fasta_content = gen_fasta_file()
+    debug_print("  Generating FASTA file content...")
+    fasta_file_write_results = interface_core.create_file_ext(res_create_dir, fasta_name, "fasta", fasta_content)
+
+    if fasta_file_write_results == 0:
+        debug_print(f"  Successfully wrote xmers to \"{res_create_dir}\\_{fasta_name}.fasta\"")
+    else:
+        debug_print(f"  Failed to write xmers to \"{res_create_dir}\\_{fasta_name}.fasta\"")
+
+    return
     # Folding selected xmers
     debug_print("\nFolding selected xmers...")
     fold_selected_xmers(res_create_dir, sequence_base_title)
@@ -320,7 +350,7 @@ def fold_selected_xmers(save_dir, sequence_base_title):
         # Creating thread to query ESMFold
         res_queue = queue.Queue()
         thread_args = (xmer[1], f"{sequence_base_title}: xmer #{str(xmer[0])}", res_queue)
-        thread = threading.Thread(target=threaded_fold_sequence, args=thread_args)
+        thread = threading.Thread(target=interface_core.threaded_fold_sequence, args=thread_args)
         thread.start()
            
         # Waiting for thread to finish
@@ -341,7 +371,7 @@ def fold_selected_xmers(save_dir, sequence_base_title):
         # Saving the result of the query to the save directory
         debug_print("  Result recieved\nSaving result to file...")
         res_title = sequence_base_title + "_" + str(xmer[0])
-        write_res = create_file_ext(save_dir, res_title, ".pbd", res_text)
+        write_res = interface_core.create_file_ext(save_dir, res_title, ".pbd", res_text)
             
         if write_res == 0:
             debug_print(f"  Successfully wrote \"{res_title}\" to \"{save_dir}\"")
@@ -400,4 +430,5 @@ f_xmer_list.pack(anchor="nw", pady=5, fill='x', side="top")
 f_sel_indicies.pack(anchor="nw", pady=5, fill='x', side="top")
 f_fold_xmers.pack(anchor="nw", pady=5, fill='x', side="top")
 
-window.mainloop()
+def begin_interface():
+    window.mainloop()
